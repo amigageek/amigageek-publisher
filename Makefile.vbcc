@@ -1,0 +1,19 @@
+CC		= vc
+CFLAGS		=						\
+		+aos68kp					\
+		-D_POSIX_SOURCE					\
+		-c99						\
+		-warn=-1					\
+		-dontwarn=51,79,81,163,164,166,167,170,306,307	\
+		-O4						\
+		-cpu=68020					\
+		-lauto						\
+		-lamiga
+
+include Makefile.common
+
+$(shell mkdir -p $(BUILDDIR) >/dev/null)
+
+.PHONY: $(AGP)
+$(AGP):
+	$(CC) -o $@ $(AGP_SRCS) $(CFLAGS)

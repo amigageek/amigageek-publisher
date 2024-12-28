@@ -1,0 +1,28 @@
+BUILDDIR	= build
+FORTIFY		= 1
+
+AGP		= $(BUILDDIR)/AGP
+AGP_SRCS	=			\
+		amiutil/app.c		\
+		amiutil/dtypes.c	\
+		common.c		\
+		html.c			\
+		main.c			\
+		markdown.c		\
+		page.c			\
+		rexx.c			\
+		rss.c
+AGP_OBJS	= $(patsubst %, $(BUILDDIR)/%.o, $(AGP_SRCS))
+
+ifeq ($(FORTIFY),1)
+	AGP_SRCS += amiutil/fortify/fortify.c
+	CFLAGS += -DFORTIFY
+endif
+
+all: $(AGP)
+
+clean:
+	rm -fr $(BUILDDIR)
+
+emubuild: $(AGP)
+	@cp $< "/home/jay/Amiga/UAE/Hard Drives/share/"

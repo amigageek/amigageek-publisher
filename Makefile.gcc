@@ -1,0 +1,33 @@
+CC		= m68k-amigaos-gcc
+CFLAGS		=			\
+		-std=c99		\
+		-Wall			\
+		-Wextra			\
+		-Wno-pointer-sign	\
+		-Wno-int-conversion	\
+		-Wno-sign-compare	\
+		-Wno-unused-parameter	\
+		-O3			\
+		-fomit-frame-pointer	\
+		-mcrt=nix20		\
+		-m68020
+DEPFLAGS	= -MT $@ -MMD -MP -MF $(BUILDDIR)/$*.Td
+BUILDDIR	= build
+FORTIFY		= 1
+
+include Makefile.common
+
+$(shell mkdir -p $(BUILDDIR)/amiutil/fortify >/dev/null)
+
+$(AGP): $(AGP_OBJS)
+	$(CC) -o $@ $^ $(CFLAGS)
+
+$(BUILDDIR)/%.c.o : %.c $(BUILDDIR)/%.d
+	$(CC) $(DEPFLAGS) $(CFLAGS) -c -o $@ $<
+	@mv -f $(BUILDDIR)/$*.Td $(BUILDDIR)/$*.d && touch $@
+
+$(BUILDDIR)/%.d: ;
+
+.PRECIOUS: $(BUILDDIR)/%.d
+
+include $(wildcard $(patsubst %, $(BUILDDIR)/%.d, $(basename $(AGP_SRCS))))
