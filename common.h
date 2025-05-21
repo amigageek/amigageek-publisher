@@ -1,7 +1,7 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#include "amiutil/app.h"
+#include "AmiUtil/Application.h"
 
 enum {
     StatusQuit = (1 << 1),

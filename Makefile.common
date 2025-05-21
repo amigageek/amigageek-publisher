@@ -1,10 +1,12 @@
+CFLAGS		+= -D_POSIX_SOURCE
+
 BUILDDIR	= build
 FORTIFY		= 1
 
 AGP		= $(BUILDDIR)/AGP
 AGP_SRCS	=			\
-		amiutil/app.c		\
-		amiutil/dtypes.c	\
+		AmiUtil/Application.c	\
+		AmiUtil/Containers.c	\
 		common.c		\
 		html.c			\
 		main.c			\
@@ -15,7 +17,7 @@ AGP_SRCS	=			\
 AGP_OBJS	= $(patsubst %, $(BUILDDIR)/%.o, $(AGP_SRCS))
 
 ifeq ($(FORTIFY),1)
-	AGP_SRCS += amiutil/fortify/fortify.c
+	AGP_SRCS += AmiUtil/Fortify/Fortify.c
 	CFLAGS += -DFORTIFY
 endif
 
@@ -25,4 +27,4 @@ clean:
 	rm -fr $(BUILDDIR)
 
 emubuild: $(AGP)
-	@cp $< "/home/jay/Amiga/UAE/Hard Drives/share/"
+	@cp $< "/home/jay/Amiga/Share/"

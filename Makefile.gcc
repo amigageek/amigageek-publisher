@@ -17,7 +17,7 @@ FORTIFY		= 1
 
 include Makefile.common
 
-$(shell mkdir -p $(BUILDDIR)/amiutil/fortify >/dev/null)
+$(shell mkdir -p $(BUILDDIR)/AmiUtil/Fortify >/dev/null)
 
 $(AGP): $(AGP_OBJS)
 	$(CC) -o $@ $^ $(CFLAGS)

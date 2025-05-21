@@ -6,7 +6,7 @@
 #define INDENT 5
 
 static Status generate_element(char** page_html_p, Element* element, Page* page, uint indent);
-static Status generate_image_dimensions(char** page_html_p, char* dir_path, char* file_name);
+static Status generate_image_tags(char** page_html_p, char* dir_path, Element* element, uint indent);
 static Status make_formatted_date(char** date_str_p, Page* page);
 
 static struct {
@@ -223,12 +223,8 @@ static Status generate_element(char** page_html_p, Element* element, Page* page,
         CHECK(string_append_indent(page_html_p, "</tr>\n", indent + 1));
         CHECK(string_append_indent(page_html_p, "</table>\n", indent));
         break;
-    case ET_Image:
-        CHECK(string_append_indent(page_html_p, "<center><div class=\"image\"><img src=\"", indent));
-        CHECK(string_append(page_html_p, element->url));
-        CHECK(string_append(page_html_p, "\""));
-        CHECK(generate_image_dimensions(page_html_p, page->dir_path, element->url));
-        CHECK(string_append(page_html_p, "></div></center>\n"));
+    case ET_Image: {
+        CHECK(generate_image_tags(page_html_p, page->dir_path, element, indent));
 
         if (string_length(element->text) > 0) {
             CHECK(string_append_indent(page_html_p, "<table cellspacing=\"0\" cellpadding=\"0\">\n", indent));
@@ -241,6 +237,7 @@ static Status generate_element(char** page_html_p, Element* element, Page* page,
             CHECK(string_append_indent(page_html_p, "<b>", indent + 3));
         }
         break;
+    }
     case ET_Link:
         CHECK(string_append(page_html_p, "<a href=\""));
         CHECK(string_append(page_html_p, element->url));
@@ -319,24 +316,46 @@ static Status generate_element(char** page_html_p, Element* element, Page* page,
     FINALLY RETURN;
 }
 
-static Status generate_image_dimensions(char** page_html_p, char* dir_path, char* file_name) {
+static Status generate_image_tags(char** page_html_p, char* dir_path, Element* element, uint indent) {
     TRY
+    char* half_file_name = NULL;
     char* image_path = NULL;
     char* text_html = NULL;
     Object* image_dt = NULL;
     struct BitMapHeader* image_bmh = NULL;
 
-    CHECK(string_path_join(&image_path, dir_path, file_name));
+    CHECK(string_clone(&half_file_name, element->url));
+    CHECK(string_replace_first(&half_file_name, ".", "_half."));
+
+    CHECK(string_path_join(&image_path, dir_path, half_file_name));
     ASSERT(image_dt = NewDTObject(image_path, DTA_SourceType, DTST_FILE, DTA_GroupID, GID_PICTURE, TAG_DONE));
     ASSERT(GetDTAttrs(image_dt, PDTA_BitMapHeader, &image_bmh, TAG_DONE));
 
-    CHECK(string_printf(&text_html, " width=\"%d\" height=\"%d\"", image_bmh->bmh_Width, image_bmh->bmh_Height));
+    CHECK(string_append_indent(page_html_p, "<center>\n", indent));
+    CHECK(string_append_indent(page_html_p, "<div class=\"image\" style=\"content: url(", indent + 1));
+    CHECK(string_append(page_html_p, element->url));
+    CHECK(string_append(page_html_p, "); "));
+
+    CHECK(string_printf(&text_html, "width: %upx; height: %upx\">\n", image_bmh->bmh_Width * 2, image_bmh->bmh_Height * 2));
     CHECK(string_append(page_html_p, text_html));
+    string_free(&text_html);
+
+    CHECK(string_append_indent(page_html_p, "<img src=\"", indent + 2))
+    CHECK(string_append(page_html_p, half_file_name));
+    CHECK(string_append(page_html_p, "\" "));
+
+    CHECK(string_printf(&text_html, "width=\"%d\" height=\"%d\"", image_bmh->bmh_Width, image_bmh->bmh_Height));
+    CHECK(string_append(page_html_p, text_html));
+    CHECK(string_append(page_html_p, ">\n"));
+
+    CHECK(string_append_indent(page_html_p, "</div>\n", indent + 1));
+    CHECK(string_append_indent(page_html_p, "</center>\n", indent));
 
     FINALLY
     DisposeDTObject(image_dt);
     string_free(&text_html);
     string_free(&image_path);
+    string_free(&half_file_name);
 
     RETURN;
 }
