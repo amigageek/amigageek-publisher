@@ -207,12 +207,22 @@ static Status make_formatted_date(char** date_str_p, Page* page) {
 
 static Status generate_element(char** page_html_p, Element* element, Page* page, uint indent) {
     TRY
+    char* anchor_name = NULL;
+
     switch (element->type) {
     case ET_Bold:
         CHECK(string_append(page_html_p, "<b>"));
         break;
     case ET_Header:
-        CHECK(string_append_indent(page_html_p, "<p class=\"heading\"><font size=\"+2\"><b>", indent));
+        ASSERT(vector_length(element->children) == 1 && element->children[0].type == ET_Text);
+
+        CHECK(string_append_indent(page_html_p, "<p class=\"heading\" id=\"", indent));
+        CHECK(string_clone(&anchor_name, element->children[0].text));
+        string_tolower(anchor_name);
+        CHECK(string_replace_all(&anchor_name, " ", "_"));
+        CHECK(string_append(page_html_p, anchor_name));
+        CHECK(string_append(page_html_p, "\"><font size=\"+2\"><b>"));
+        string_free(&anchor_name);
         break;
     case ET_HRule:
         CHECK(string_append_indent(page_html_p, "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">\n", indent));
@@ -313,7 +323,10 @@ static Status generate_element(char** page_html_p, Element* element, Page* page,
         break;
     }
 
-    FINALLY RETURN;
+    FINALLY
+    string_free(&anchor_name);
+
+    RETURN;
 }
 
 static Status generate_image_tags(char** page_html_p, char* dir_path, Element* element, uint indent) {
