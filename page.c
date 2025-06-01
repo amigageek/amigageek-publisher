@@ -143,6 +143,8 @@ static Status find_all_pages(const char* dir_path, const char* dir_url) {
             CHECK(string_clone(&page->dir_path, dir_path));
             CHECK(string_clone(&page->relative_url, dir_url));
             CHECK(vector_new(&page->children, sizeof(Element), 0));
+
+            page->add_to_index = string_startswith(dir_url, "posts/") || (string_count_substr(dir_url, "/") == 1);
         }
 
         string_free(&sub_path);

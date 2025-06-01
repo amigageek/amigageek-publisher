@@ -82,26 +82,28 @@ Status html_generate_root(char** root_html_p, Page* pages) {
     CHECK(vector_new(&post_pages, sizeof(Page), 0));
 
     vector_foreach(pages, Page, page) {
-        if (page->description) {
-            size_t insert_at = 0;
+        if (page->add_to_index) {
+            if (page->description) {
+                size_t insert_at = 0;
 
-            for (; insert_at < vector_length(project_pages); ++ insert_at) {
-                if (strcmp(page->title, project_pages[insert_at].title) < 0) {
-                    break;
+                for (; insert_at < vector_length(project_pages); ++ insert_at) {
+                    if (strcmp(page->title, project_pages[insert_at].title) < 0) {
+                        break;
+                    }
                 }
-            }
 
-            CHECK(vector_insert(&project_pages, insert_at, 1, page));
-        } else {
-            size_t insert_at = 0;
+                CHECK(vector_insert(&project_pages, insert_at, 1, page));
+            } else {
+                size_t insert_at = 0;
 
-            for (; insert_at < vector_length(post_pages); ++ insert_at) {
-                if (strcmp(page->date, post_pages[insert_at].date) > 0) {
-                    break;
+                for (; insert_at < vector_length(post_pages); ++ insert_at) {
+                    if (strcmp(page->date, post_pages[insert_at].date) > 0) {
+                        break;
+                    }
                 }
-            }
 
-            CHECK(vector_insert(&post_pages, insert_at, 1, page));
+                CHECK(vector_insert(&post_pages, insert_at, 1, page));
+            }
         }
     }
 

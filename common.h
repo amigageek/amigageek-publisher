@@ -39,6 +39,7 @@ typedef struct {
     uint date_year;
     uint date_month;
     uint date_day;
+    bool add_to_index;
 } Page;
 
 Status file_read(char** contents_p, const char* path);
