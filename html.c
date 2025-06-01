@@ -218,13 +218,14 @@ static Status generate_element(char** page_html_p, Element* element, Page* page,
     case ET_Header:
         ASSERT(vector_length(element->children) == 1 && element->children[0].type == ET_Text);
 
-        CHECK(string_append_indent(page_html_p, "<p class=\"heading\" id=\"", indent));
+        CHECK(string_append_indent(page_html_p, "<a name=\"", indent));
         CHECK(string_clone(&anchor_name, element->children[0].text));
         string_tolower(anchor_name);
         CHECK(string_replace_all(&anchor_name, " ", "_"));
         CHECK(string_append(page_html_p, anchor_name));
-        CHECK(string_append(page_html_p, "\"><font size=\"+2\"><b>"));
         string_free(&anchor_name);
+        CHECK(string_append(page_html_p, "\"></a>\n"));
+        CHECK(string_append_indent(page_html_p, "<p class=\"heading\"><font size=\"+2\"><b>", indent));
         break;
     case ET_HRule:
         CHECK(string_append_indent(page_html_p, "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">\n", indent));
