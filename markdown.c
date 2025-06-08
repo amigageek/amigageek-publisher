@@ -19,26 +19,23 @@ static Status parse_blocks(Page* page, const char* next_char, const char* end_ch
 static Status parse_front_matter(Page* page, const char** next_char_p, const char* end_char);
 static Status parse_inlines(Element** elements_p, const char** next_char_p, const char* end_char);
 
-Status markdown_parse(const char* text, Page* page) {
+Status markdown_parse_frontmatter(const char* text, Page* page) {
+    TRY
+    const char* next_char = text;
+    const char* end_char = text + strlen(text);
+
+    CHECK(parse_front_matter(page, &next_char, end_char));
+
+    FINALLY RETURN;
+}
+
+Status markdown_parse_all(const char* text, Page* page) {
     TRY
     const char* next_char = text;
     const char* end_char = text + strlen(text);
 
     CHECK(parse_front_matter(page, &next_char, end_char));
     CHECK(parse_blocks(page, next_char, end_char));
-
-    if (! page->title) {
-        CHECK(string_clone(&page->title, "Untitled"));
-    }
-
-    if (! page->date) {
-        CHECK(string_clone(&page->date, "0000-00-00"));
-    }
-
-    sscanf(page->date, "%u-%u-%u", &page->date_year, &page->date_month, &page->date_day);
-
-    page->date_day = MAX(1, MIN(31, page->date_day));
-    page->date_month = MAX(1, MIN(12, page->date_month));
 
     FINALLY RETURN;
 }
@@ -76,6 +73,19 @@ static Status parse_front_matter(Page* page, const char** next_char_p, const cha
     }
 
     *next_char_p = next_char;
+
+    if (! page->title) {
+        CHECK(string_clone(&page->title, "Untitled"));
+    }
+
+    if (! page->date) {
+        CHECK(string_clone(&page->date, "0000-00-00"));
+    }
+
+    sscanf(page->date, "%u-%u-%u", &page->date_year, &page->date_month, &page->date_day);
+
+    page->date_day = MAX(1, MIN(31, page->date_day));
+    page->date_month = MAX(1, MIN(12, page->date_month));
 
     FINALLY RETURN;
 }

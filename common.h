@@ -28,7 +28,8 @@ typedef struct ElementS {
     char* url;
 } Element;
 
-typedef struct {
+typedef struct PageS {
+    struct PageS* parent;
     char* markdown_path;
     char* dir_path;
     char* relative_url;
@@ -48,12 +49,13 @@ void html_fini(void);
 Status html_generate(char** page_html_p, Page* page);
 Status html_generate_root(char** root_html_p, Page* pages);
 Status html_init(const char* base_path);
-Status markdown_parse(const char* file_contents, Page* page);
+Status markdown_parse_all(const char* file_contents, Page* page);
+Status markdown_parse_frontmatter(const char* file_contents, Page* page);
 Status page_build_all(const char* base_path);
 Status page_build_live(const char* base_path);
 void page_fini(void);
 Status page_init(void);
-Status rexx_get_live_paths(char*** paths_p);
+Status rexx_get_live_path(char** path_p);
 Status rss_generate(char** html_p, Page* pages);
 Status string_append_indent(char** to_string_p, const char* suffix, uint indent);
 

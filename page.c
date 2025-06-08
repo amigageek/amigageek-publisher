@@ -7,11 +7,12 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+static Status build_all_pages(const char* dir_path, const char* dir_url, const char* filter_path, Page* parent);
 static Status build_page(Page* page);
-static Status find_all_pages(const char* dir_path, const char* dir_url);
 static void free_elements(Element** elements);
 static Status get_live_url(char** live_url_p, const char* path, const char* base_path);
 static Status get_real_path(char** real_path_p, const char* path);
+static Status parse_frontmatter(Page* page);
 
 static struct {
     Page *pages;
@@ -57,11 +58,7 @@ Status page_build_all(const char* base_path) {
     char* file_path = NULL;
     char* text = NULL;
 
-    CHECK(find_all_pages(base_path, ""));
-
-    vector_foreach(g.pages, Page, page) {
-        CHECK(build_page(page));
-    }
+    CHECK(build_all_pages(base_path, "", NULL, NULL));
 
     CHECK(string_path_join(&file_path, base_path, "index.html"));
     CHECK(html_generate_root(&text, g.pages));
@@ -83,68 +80,78 @@ Status page_build_all(const char* base_path) {
 
 Status page_build_live(const char* base_path) {
     TRY
-    char** live_paths = NULL;
+    char* live_path = NULL;
     char* live_url = NULL;
+    char* real_base_path = NULL;
+    char* real_live_path = NULL;
 
-    CHECK(rexx_get_live_paths(&live_paths));
+    CHECK(rexx_get_live_path(&live_path));
 
-    vector_foreach(live_paths, char*, live_path_p) {
-        CHECK(vector_append(&g.pages, 1, NULL));
-        Page* page = &g.pages[vector_length(g.pages) - 1];
+    if (live_path) {
+        CHECK(get_real_path(&real_base_path, base_path));
+        CHECK(get_real_path(&real_live_path, live_path));
+        CHECK(build_all_pages(real_base_path, "", real_live_path, NULL));
 
-        SWAP(page->markdown_path, *live_path_p);
-        CHECK(string_path_dirpart(&page->dir_path, page->markdown_path));
-        CHECK(vector_new(&page->children, sizeof(Element), 0));
+        Page* live_page = &vector_last(g.pages);
 
-        CHECK(build_page(page));
-
-        CHECK(get_live_url(&live_url, page->dir_path, base_path));
+        CHECK(get_live_url(&live_url, live_page->dir_path, base_path));
         URL_Open(live_url, TAG_DONE);
         string_free(&live_url);
     }
 
     FINALLY
+    string_free(&real_live_path);
+    string_free(&real_base_path);
     string_free(&live_url);
-
-    if (live_paths) {
-        vector_foreach(live_paths, char*, live_path_p) {
-            string_free(live_path_p);
-        }
-
-        vector_free(&live_paths);
-    }
+    string_free(&live_path);
 
     RETURN;
 }
 
-static Status find_all_pages(const char* dir_path, const char* dir_url) {
+static Status build_all_pages(const char* dir_path, const char* dir_url, const char* filter_path, Page* parent) {
     TRY
     DIR* dir = NULL;
     char* sub_path = NULL;
     char* sub_url = NULL;
+    struct stat path_stat;
+    Page* index_page = NULL;
+
+    CHECK(string_path_join(&sub_path, dir_path, "index.md"));
+
+    if (stat(sub_path, &path_stat) == 0) {
+        CHECK(vector_append(&g.pages, 1, NULL));
+        index_page = &g.pages[vector_length(g.pages) - 1];
+
+        SWAP(index_page->markdown_path, sub_path);
+        CHECK(string_clone(&index_page->dir_path, dir_path));
+        CHECK(string_clone(&index_page->relative_url, dir_url));
+        CHECK(vector_new(&index_page->children, sizeof(Element), 0));
+
+        index_page->add_to_index = string_startswith(dir_url, "posts/") || (string_count_substr(dir_url, "/") == 1);
+        index_page->parent = parent;
+
+        if ((! filter_path) || (strcmp(index_page->markdown_path, filter_path) == 0)) {
+            CHECK(build_page(index_page));
+        } else {
+            CHECK(parse_frontmatter(index_page));
+        }
+    }
+
+    string_free(&sub_path);
 
     ASSERT(dir = opendir(dir_path), "%s is not a directory", dir_path);
 
     for (struct dirent* dir_ent; (dir_ent = readdir(dir));) {
         CHECK(string_path_join(&sub_path, dir_path, dir_ent->d_name));
 
-        struct stat dir_stat;
-        ASSERT(stat(sub_path, &dir_stat) == 0, "Cannot stat %s", dir_ent->d_name);
+        ASSERT(stat(sub_path, &path_stat) == 0, "Cannot stat %s", dir_ent->d_name);
 
-        if (S_ISDIR(dir_stat.st_mode)) {
-            CHECK(string_printf(&sub_url, "%s%s/", dir_url, dir_ent->d_name));
-            CHECK(find_all_pages(sub_path, sub_url));
-            string_free(&sub_url);
-        } else if (strcmp(dir_ent->d_name, "index.md") == 0) {
-            CHECK(vector_append(&g.pages, 1, NULL));
-            Page* page = &g.pages[vector_length(g.pages) - 1];
-
-            SWAP(page->markdown_path, sub_path);
-            CHECK(string_clone(&page->dir_path, dir_path));
-            CHECK(string_clone(&page->relative_url, dir_url));
-            CHECK(vector_new(&page->children, sizeof(Element), 0));
-
-            page->add_to_index = string_startswith(dir_url, "posts/") || (string_count_substr(dir_url, "/") == 1);
+        if (S_ISDIR(path_stat.st_mode)) {
+            if ((! filter_path) || string_startswith(filter_path, sub_path)) {
+                CHECK(string_printf(&sub_url, "%s%s/", dir_url, dir_ent->d_name));
+                CHECK(build_all_pages(sub_path, sub_url, filter_path, index_page ? index_page : parent));
+                string_free(&sub_url);
+            }
         }
 
         string_free(&sub_path);
@@ -161,6 +168,19 @@ static Status find_all_pages(const char* dir_path, const char* dir_url) {
     RETURN;
 }
 
+static Status parse_frontmatter(Page* page) {
+    TRY
+    char* text_markdown = NULL;
+
+    CHECK(file_read(&text_markdown, page->markdown_path));
+    CHECK(markdown_parse_frontmatter(text_markdown, page));
+
+    FINALLY
+    string_free(&text_markdown);
+
+    RETURN;
+}
+
 static Status build_page(Page* page) {
     TRY
     char* text_markdown = NULL;
@@ -168,7 +188,8 @@ static Status build_page(Page* page) {
     char* html_path = NULL;
 
     CHECK(file_read(&text_markdown, page->markdown_path));
-    CHECK(markdown_parse(text_markdown, page));
+    CHECK(markdown_parse_all(text_markdown, page));
+
     CHECK(html_generate(&text_html, page));
 
     CHECK(string_clone_substr(&html_path, page->markdown_path, string_length(page->markdown_path) - 2));

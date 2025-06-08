@@ -3,11 +3,13 @@
 #include <datatypes/pictureclass.h>
 #include <proto/datatypes.h>
 
-#define INDENT 5
+#define INDENT 3
 
 static Status generate_element(char** page_html_p, Element* element, Page* page, uint indent);
 static Status generate_image_tags(char** page_html_p, char* dir_path, Element* element, uint indent);
+static Status make_breadcrumb_string(char** title_str_p, Page* page);
 static Status make_formatted_date(char** date_str_p, Page* page);
+static Status make_title_string(char** title_str_p, Page* page);
 
 static struct {
     char* page_template;
@@ -34,31 +36,54 @@ Status html_generate(char** page_html_p, Page* page) {
     TRY
     char* date_str = NULL;
     char* title_str = NULL;
+    char* breadcrumb_str = NULL;
     char* body_html = NULL;
 
     CHECK(make_formatted_date(&date_str, page));
-    CHECK(string_printf(&title_str, "%s | Amiga Geek", page->title));
+
+    CHECK(string_clone(&title_str, "Amiga Geek"));
+    CHECK(make_title_string(&title_str, page));
 
     CHECK(string_new(&body_html, 0));
-    CHECK(string_append_indent(&body_html, "<p class=\"heading\"><font size=\"+2\"><b>", INDENT));
+
+    if (page->parent) {
+        CHECK(string_clone(&breadcrumb_str, "<a href=\"/\">Home</a>"));
+        CHECK(make_breadcrumb_string(&breadcrumb_str, page->parent));
+
+        CHECK(string_append_indent(&body_html, "<tr>\n", INDENT));
+        CHECK(string_append_indent(&body_html, "<td>", INDENT + 1));
+        CHECK(string_append(&body_html, breadcrumb_str));
+        CHECK(string_append(&body_html, "</td>\n"));
+        CHECK(string_append_indent(&body_html, "</tr>\n", INDENT));
+        CHECK(string_append_indent(&body_html, "<tr>\n", INDENT));
+        CHECK(string_append_indent(&body_html, "<td class=\"hrule\" height=\"1\" bgcolor=\"#383860\"></td>\n", INDENT + 1));
+        CHECK(string_append_indent(&body_html, "</tr>\n", INDENT));
+    }
+
+    CHECK(string_append_indent(&body_html, "<tr>\n", INDENT));
+    CHECK(string_append_indent(&body_html, "<td class=\"content\">\n", INDENT + 1));
+    CHECK(string_append_indent(&body_html, "<p class=\"heading\"><font size=\"+2\"><b>", INDENT + 2));
     CHECK(string_append(&body_html, page->title));
     CHECK(string_append(&body_html, "</b></font></p>\n"));
-    CHECK(string_append_indent(&body_html, "<p>Last updated: ", INDENT));
+    CHECK(string_append_indent(&body_html, "<p>Last updated: ", INDENT + 2));
     CHECK(string_append(&body_html, date_str));
     CHECK(string_append(&body_html, "</p>\n"));
 
-    CHECK(string_append_indent(&body_html, "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">\n", INDENT));
-    CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 1));
-    CHECK(string_append_indent(&body_html, "<td class=\"vspace\" height=\"10\"></td>\n", INDENT + 2));
-    CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 1));
-    CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 1));
-    CHECK(string_append_indent(&body_html, "<td class=\"hrule\" height=\"1\" bgcolor=\"#383860\"></td>\n", INDENT + 2));
-    CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 1));
-    CHECK(string_append_indent(&body_html, "</table>\n", INDENT));
+    CHECK(string_append_indent(&body_html, "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">\n", INDENT + 2));
+    CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 3));
+    CHECK(string_append_indent(&body_html, "<td class=\"vspace\" height=\"10\"></td>\n", INDENT + 4));
+    CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 3));
+    CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 3));
+    CHECK(string_append_indent(&body_html, "<td class=\"hrule\" height=\"1\" bgcolor=\"#383860\"></td>\n", INDENT + 4));
+    CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 3));
+    CHECK(string_append_indent(&body_html, "</table>\n", INDENT + 2));
 
     vector_foreach(page->children, Element, child) {
-        CHECK(generate_element(&body_html, child, page, INDENT));
+        CHECK(generate_element(&body_html, child, page, INDENT + 2));
     }
+
+    CHECK(string_append_indent(&body_html, "</td>\n", INDENT + 1));
+    CHECK(string_append_indent(&body_html, "</tr>\n", INDENT));
 
     CHECK(string_clone(page_html_p, g.page_template));
     CHECK(string_replace_first(page_html_p, "$BODY", body_html));
@@ -66,6 +91,7 @@ Status html_generate(char** page_html_p, Page* page) {
 
     FINALLY
     string_free(&body_html);
+    string_free(&breadcrumb_str);
     string_free(&title_str);
     string_free(&date_str);
 
@@ -108,60 +134,64 @@ Status html_generate_root(char** root_html_p, Page* pages) {
     }
 
     CHECK(string_new(&body_html, 0));
-    CHECK(string_append_indent(&body_html, "<p class=\"heading\"><font size=\"+2\"><b>Projects</b></font></p>\n", INDENT));
-    CHECK(string_append_indent(&body_html, "<table class=\"table\" cellspacing=\"0\" cellpadding=\"0\">\n", INDENT));
+    CHECK(string_append_indent(&body_html, "<tr>\n", INDENT));
+    CHECK(string_append_indent(&body_html, "<td class=\"content\">\n", INDENT + 1));
+    CHECK(string_append_indent(&body_html, "<p class=\"heading\"><font size=\"+2\"><b>Projects</b></font></p>\n", INDENT + 2));
+    CHECK(string_append_indent(&body_html, "<table class=\"table\" cellspacing=\"0\" cellpadding=\"0\">\n", INDENT + 2));
 
     vector_foreach(project_pages, Page, page) {
-        CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 1));
-        CHECK(string_append_indent(&body_html, "<td class=\"vspace\" height=\"10\"></td></tr>\n", INDENT + 2));
-        CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 1));
-        CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 1));
-        CHECK(string_append_indent(&body_html, "<td class=\"hspace\" width=\"10\"></td>\n", INDENT + 2));
-        CHECK(string_append_indent(&body_html, "<td><a href=\"", INDENT + 2));
+        CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 3));
+        CHECK(string_append_indent(&body_html, "<td class=\"vspace\" height=\"10\"></td></tr>\n", INDENT + 4));
+        CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 3));
+        CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 3));
+        CHECK(string_append_indent(&body_html, "<td class=\"hspace\" width=\"10\"></td>\n", INDENT + 4));
+        CHECK(string_append_indent(&body_html, "<td><a href=\"", INDENT + 4));
         CHECK(string_append(&body_html, page->relative_url));
         CHECK(string_append(&body_html, "\">"));
         CHECK(string_append(&body_html, page->title));
         CHECK(string_append(&body_html, "</a></td>\n"));
-        CHECK(string_append_indent(&body_html, "<td class=\"hspace\" width=\"10\"></td>\n", INDENT + 2));
-        CHECK(string_append_indent(&body_html, "<td>", INDENT + 2));
+        CHECK(string_append_indent(&body_html, "<td class=\"hspace\" width=\"10\"></td>\n", INDENT + 4));
+        CHECK(string_append_indent(&body_html, "<td>", INDENT + 4));
         CHECK(string_append(&body_html, page->description));
         CHECK(string_append(&body_html, "</td>\n"));
-        CHECK(string_append_indent(&body_html, "<td class=\"hspace\" width=\"10\"></td>\n", INDENT + 2));
-        CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 1));
+        CHECK(string_append_indent(&body_html, "<td class=\"hspace\" width=\"10\"></td>\n", INDENT + 4));
+        CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 3));
     }
 
-    CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 1));
-    CHECK(string_append_indent(&body_html, "<td class=\"vspace\" height=\"10\"></td></tr>\n", INDENT + 2));
-    CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 1));
-    CHECK(string_append_indent(&body_html, "</table>\n", INDENT));
-    CHECK(string_append_indent(&body_html, "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">\n", INDENT));
-    CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 1));
-    CHECK(string_append_indent(&body_html, "<td class=\"hrule\" height=\"1\" bgcolor=\"#383860\"></td>\n", INDENT + 2));
-    CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 1));
-    CHECK(string_append_indent(&body_html, "</table>\n", INDENT));
-    CHECK(string_append_indent(&body_html, "<p class=\"heading\"><font size=\"+2\"><b>Recent posts</b></font></p>\n", INDENT));
-    CHECK(string_append_indent(&body_html, "<table class=\"table\" cellspacing=\"0\" cellpadding=\"0\">\n", INDENT));
+    CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 3));
+    CHECK(string_append_indent(&body_html, "<td class=\"vspace\" height=\"10\"></td></tr>\n", INDENT + 4));
+    CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 3));
+    CHECK(string_append_indent(&body_html, "</table>\n", INDENT + 2));
+    CHECK(string_append_indent(&body_html, "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"0\">\n", INDENT + 2));
+    CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 3));
+    CHECK(string_append_indent(&body_html, "<td class=\"hrule\" height=\"1\" bgcolor=\"#383860\"></td>\n", INDENT + 4));
+    CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 3));
+    CHECK(string_append_indent(&body_html, "</table>\n", INDENT + 2));
+    CHECK(string_append_indent(&body_html, "<p class=\"heading\"><font size=\"+2\"><b>Recent posts</b></font></p>\n", INDENT + 2));
+    CHECK(string_append_indent(&body_html, "<table class=\"table\" cellspacing=\"0\" cellpadding=\"0\">\n", INDENT + 2));
 
     vector_foreach(post_pages, Page, page) {
-        CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 1));
-        CHECK(string_append_indent(&body_html, "<td class=\"vspace\" height=\"10\"></td></tr>\n", INDENT + 2));
-        CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 1));
-        CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 1));
-        CHECK(string_append_indent(&body_html, "<td class=\"hspace\" width=\"10\"></td>\n", INDENT + 2));
-        CHECK(string_append_indent(&body_html, "<td>", INDENT + 2));
+        CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 3));
+        CHECK(string_append_indent(&body_html, "<td class=\"vspace\" height=\"10\"></td></tr>\n", INDENT + 4));
+        CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 3));
+        CHECK(string_append_indent(&body_html, "<tr>\n", INDENT + 3));
+        CHECK(string_append_indent(&body_html, "<td class=\"hspace\" width=\"10\"></td>\n", INDENT + 4));
+        CHECK(string_append_indent(&body_html, "<td>", INDENT + 4));
         CHECK(string_append(&body_html, page->date));
         CHECK(string_append(&body_html, "</td>\n"));
-        CHECK(string_append_indent(&body_html, "<td class=\"hspace\" width=\"10\"></td>\n", INDENT + 2));
-        CHECK(string_append_indent(&body_html, "<td><a href=\"", INDENT + 2));
+        CHECK(string_append_indent(&body_html, "<td class=\"hspace\" width=\"10\"></td>\n", INDENT + 4));
+        CHECK(string_append_indent(&body_html, "<td><a href=\"", INDENT + 4));
         CHECK(string_append(&body_html, page->relative_url));
         CHECK(string_append(&body_html, "\">"));
         CHECK(string_append(&body_html, page->title));
         CHECK(string_append(&body_html, "</a></td>\n"));
-        CHECK(string_append_indent(&body_html, "<td class=\"hspace\" width=\"10\"></td>\n", INDENT + 2));
-        CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 1));
+        CHECK(string_append_indent(&body_html, "<td class=\"hspace\" width=\"10\"></td>\n", INDENT + 4));
+        CHECK(string_append_indent(&body_html, "</tr>\n", INDENT + 3));
     }
 
-    CHECK(string_append_indent(&body_html, "</table>\n", INDENT));
+    CHECK(string_append_indent(&body_html, "</table>\n", INDENT + 2));
+    CHECK(string_append_indent(&body_html, "</td>\n", INDENT + 1));
+    CHECK(string_append_indent(&body_html, "</tr>\n", INDENT));
 
     CHECK(string_clone(root_html_p, g.page_template));
     CHECK(string_replace_first(root_html_p, "$BODY", body_html));
@@ -203,6 +233,35 @@ static Status make_formatted_date(char** date_str_p, Page* page) {
 
     CHECK(string_printf(date_str_p, "%u%s %s %u", page->date_day,
         day_suffix, month_names[page->date_month - 1], page->date_year));
+
+    FINALLY RETURN;
+}
+
+static Status make_title_string(char** title_str_p, Page* page) {
+    TRY
+    if (page->parent) {
+        CHECK(make_title_string(title_str_p, page->parent));
+    }
+
+    CHECK(string_prepend(title_str_p, " | "));
+    CHECK(string_prepend(title_str_p, page->title));
+
+    FINALLY RETURN;
+}
+
+static Status make_breadcrumb_string(char** title_str_p, Page* page) {
+    TRY
+    if (page) {
+        if (page->parent) {
+            CHECK(make_breadcrumb_string(title_str_p, page->parent));
+        }
+
+        CHECK(string_append(title_str_p, " &raquo; <a href=\"/"));
+        CHECK(string_append(title_str_p, page->relative_url));
+        CHECK(string_append(title_str_p, "\">"));
+        CHECK(string_append(title_str_p, page->title));
+        CHECK(string_append(title_str_p, "</a>"));
+    }
 
     FINALLY RETURN;
 }

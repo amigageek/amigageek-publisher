@@ -9,7 +9,7 @@ static Status find_textedit_ports(char*** port_names_p);
 static Status send_message(char** result_p, const char* port_name,
     struct MsgPort* reply_port, struct RexxMsg* message, char *command);
 
-Status rexx_get_live_paths(char*** paths_p) {
+Status rexx_get_live_path(char** path_p) {
     TRY
     struct MsgPort* reply_port = NULL;
     struct RexxMsg* message = NULL;
@@ -18,7 +18,6 @@ Status rexx_get_live_paths(char*** paths_p) {
 
     ASSERT(reply_port = CreateMsgPort());
     ASSERT(message = CreateRexxMsg(reply_port, NULL, NULL));
-    CHECK(vector_new(paths_p, sizeof(char*), 0));
     CHECK(vector_new(&port_names, sizeof(char*), 0));
 
     CHECK(find_textedit_ports(&port_names));
@@ -28,8 +27,8 @@ Status rexx_get_live_paths(char*** paths_p) {
 
         if (string_endswith(file_name, "index.md")) {
             CHECK(send_message(NULL, *port_name_p, reply_port, message, "SAVE"))
-            CHECK(vector_append(paths_p, 1, &file_name));
-            file_name = NULL;
+            SWAP(file_name, *path_p);
+            break;
         } else {
             string_free(&file_name);
         }
