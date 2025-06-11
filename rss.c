@@ -20,6 +20,10 @@ Status rss_generate(char** html_p, Page* pages) {
     qsort(pages, vector_length(pages), sizeof(Page), page_compare);
 
     vector_foreach(pages, Page, page) {
+        if (page->parent) {
+            continue;
+        }
+
         CHECK(string_append_indent(html_p, "<item>\n", 2));
         CHECK(string_append_indent(html_p, "<title>", 3));
         CHECK(string_append(html_p, page->title));
